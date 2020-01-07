@@ -3,3 +3,6 @@
 __author__ = """MyOperator"""
 __email__ = 'dev@myoperator.co'
 __version__ = '0.1.0'
+
+
+from .centrallog import centrallog  # noqa F401
