@@ -1,34 +1,80 @@
 """Main module."""
-# import logging
 import json
-
 import logging
 
-
-ACL = {
-    "developer": 1,
-    "support": 2,
-    "customer": 4,
-}
+from . import helpers
+from .defaults import ACL
 
 
 class centrallog(logging.getLoggerClass()):
+    """centrallog(self, name)
+    Custom Logger class which extends the functionality of the existing
+    Logger. 'name' is the name of logger. Do not instantiate this class
+    direcly instead use getLogger() statid method of the class.
+    The 'acl' parameter in most of the function is Access Control List,
+    which tells whether the log is for developer(1), support(2) or
+    customer(4).
+
+    -------------------------------------------------------------------
+    Usage:
+    from myoperator.centrallog import centrallog
+    logger = centrallog.getLogger()
+    logger.log('test.', acl=4)
+    -------------------------------------------------------------------
+
+    Additional methods defined:
+
+    dlog(self, level, msg, *args, **kwargs)
+        Write developer logs.
+
+    slog(self, level, msg, *args, **kwargs)
+        Write support logs.
+
+    clog(self, level, msg, *args, **kwargs)
+        Write customer logs.
+    """
+    _SERVICENAME = None
+    _HOSTNAME = ''
+    _UID = ''
+
     def __init__(self, name):
         logging.Logger.__init__(self, name)
 
     @staticmethod
-    def getLogger(name='root'):
+    def getLogger(name=None):
+        if centrallog._SERVICENAME is None:
+            # default configuration if not configured yet
+            centrallog.configure(name or 'root')
         return logging.getLogger(name)
 
     @staticmethod
     def basicConfig(**kwargs):
         logging.basicConfig(**kwargs)
 
+    @staticmethod
+    def configure(servicename: str, hostname='', uid=''):
+        if isinstance(servicename, str):
+            centrallog._SERVICENAME = servicename
+            centrallog._HOSTNAME = hostname or helpers.get_host_IP()
+            centrallog._UID = uid or helpers.get_uuid()
+        else:
+            raise ValueError("Service name must be a string.")
+
+    @staticmethod
+    def get_configuration():
+        """Get the configurations set by configure() method"""
+        return (centrallog._SERVICENAME, centrallog._HOSTNAME, centrallog._UID)
+
+    @staticmethod
+    def is_configured():
+        """Check if configurations are already set."""
+        return centrallog._SERVICENAME is not None
+
     def process(self, msg, kwargs):
         """Format the message captured for every log.
         """
         acl = kwargs.pop('acl', ACL['developer'])
-        acl_values = ACL.values()
+        acl_values = set(ACL.values())
         if acl not in acl_values:
             raise ValueError("Invalid acl value. Possible values are %s."
                              % list(acl_values))
@@ -36,10 +82,11 @@ class centrallog(logging.getLoggerClass()):
         msg_body = {
             "time": "epoch time",
             "mc_time": "epoch ms",
-            "ip": "server-ip",
+            "ip": centrallog._HOSTNAME,
+            "service": centrallog._SERVICENAME,
             "class": "class name",
             "data": {
-                "uid": "uid",
+                "uid": centrallog._UID,
                 "msg": msg,
                 "acl": acl
             },

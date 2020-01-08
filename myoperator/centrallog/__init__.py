@@ -6,3 +6,4 @@ __version__ = '0.1.0'
 
 
 from .centrallog import centrallog  # noqa F401
+from .defaults import ACL  # noqa F401
