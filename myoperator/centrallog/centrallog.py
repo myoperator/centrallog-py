@@ -87,7 +87,7 @@ class centrallog(logging.getLoggerClass()):
             "class": "class name",
             "data": {
                 "uid": centrallog._UID,
-                "msg": msg,
+                "msg": msg or '',
                 "acl": acl
             },
             "title": "title here...",
