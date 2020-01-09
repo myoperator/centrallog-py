@@ -31,43 +31,43 @@ def test_default_logger():
 
 
 def test_core_logging_functions(logger, caplog):
-    """Tests for builtin logger's functoins.
+    """Tests for builtin logger's functions.
     """
     # critical function
+    caplog.clear()
     logger.critical("message", acl=ACL['developer'])
     record_tuple = caplog.record_tuples[0]
     assert record_tuple[:-1] == (logger.name, logging.CRITICAL)
-    caplog.clear()
 
     # error function
+    caplog.clear()
     logger.error("message", acl=ACL['customer'])
     record_tuple = caplog.record_tuples[0]
     assert record_tuple[:-1] == (logger.name, logging.ERROR)
-    caplog.clear()
 
     # warning function
+    caplog.clear()
     logger.warning("message", acl=ACL['developer'])
     record_tuple = caplog.record_tuples[0]
     assert record_tuple[:-1] == (logger.name, logging.WARNING)
-    caplog.clear()
 
     # info function
+    caplog.clear()
     logger.info("message", acl=ACL['customer'])
     record_tuple = caplog.record_tuples[0]
     assert record_tuple[:-1] == (logger.name, logging.INFO)
-    caplog.clear()
 
     # debug function
+    caplog.clear()
     logger.debug("message", acl=ACL['developer'])
     record_tuple = caplog.record_tuples[0]
     assert record_tuple[:-1] == (logger.name, logging.DEBUG)
-    caplog.clear()
 
     # log function
+    caplog.clear()
     logger.log(logging.CRITICAL, "message", acl=ACL['support'])
     record_tuple = caplog.record_tuples[0]
     assert record_tuple[:-1] == (logger.name, logging.CRITICAL)
-    caplog.clear()
 
 
 # ---------------------------------------------------------------
@@ -80,25 +80,25 @@ def test_new_added_functions_default_acl(logger, caplog):
     Test their default acl value is logged correctly.
     """
     # dlog function
+    caplog.clear()
     logger.dlog(logging.INFO, "message")
     data = get_message_body(caplog)
     assert data['data']['acl'] == ACL['developer'], \
         f"Acl for dlog should be {ACL['developer']}."
-    caplog.clear()
 
     # slog function
+    caplog.clear()
     logger.slog(logging.DEBUG, "message")
     data = get_message_body(caplog)
     assert data['data']['acl'] == ACL['support'], \
         f"Acl for slog should be {ACL['support']}."
-    caplog.clear()
 
     # clog function
+    caplog.clear()
     logger.clog(logging.ERROR, "message")
     data = get_message_body(caplog)
     assert data['data']['acl'] == ACL['customer'], \
         f"Acl for clog should be {ACL['customer']}."
-    caplog.clear()
 
 
 def test_invalid_acl_value(logger, caplog):
@@ -114,29 +114,29 @@ def test_newlog_functions_default_acl(logger, caplog):
     explicitly. These functions should silently discard acl arg.
     """
     # explicitly set acl value for dlog
+    caplog.clear()
     logger.dlog(logging.INFO, 'message.', acl=2)
     data = get_message_body(caplog)
-    caplog.clear()
     assert data['data']['acl'] == ACL['developer'], \
         f"Acl for dlog should be {ACL['developer']}."
 
     # explicitly set acl value for slog
+    caplog.clear()
     logger.slog(logging.INFO, 'message.', acl=5)
     data = get_message_body(caplog)
-    caplog.clear()
     assert data['data']['acl'] == ACL['support'], \
         f"Acl for slog should be {ACL['support']}."
 
     # explicitly set acl value for clog
+    caplog.clear()
     logger.clog(logging.INFO, 'message.', acl=3)
     data = get_message_body(caplog)
-    caplog.clear()
     assert data['data']['acl'] == ACL['customer'], \
         f"Acl for clog should be {ACL['customer']}."
 
 
 def test_configure_without_servicename():
-    """confiure function takes 1 positional arg which should
+    """Confiure function takes 1 positional arg which should
     be string type.
     """
     with pytest.raises(TypeError):
@@ -147,47 +147,61 @@ def test_configure_without_servicename():
 
 
 # ----------------------------------------------------------------------------
-#       log message formatting test cases
+#       exception in log tests
 # ----------------------------------------------------------------------------
 
-
-def flattern_values(msg):
-    """Get all the values of a json into a list.
+def test_exception_log_traceback(logger, caplog):
+    """Test exception() logging exception in msg body.
     """
-    data = []
-    if isinstance(msg, list):
-        for m in msg:
-            fv = flattern_values(m)
-            data += fv
-    elif isinstance(msg, dict):
-        for m in msg.values():
-            fv = flattern_values(m)
-            data += fv
-    else:
-        data.append(msg)
-    return data
-
-
-def contains_null_falsy_value(msg):
-    """Check if any value contains null or falsy except empty string.
-    Return true if contains.
-    """
-    vals = flattern_values(msg)
-    vals = [v for v in vals if not isinstance(v, str)]
-    return not all(vals)
-
-
-def test_nullable_falsy_values_in_message(logger, caplog):
-    logger.warning(None)
+    caplog.clear()
+    try:
+        raise ValueError('must be logged.')
+    except ValueError:
+        logger.exception('This should be written.', acl=ACL['developer'])
     data = get_message_body(caplog)
 
-    assert not contains_null_falsy_value(data), \
-        "Log message contains falsy value other than empty string."
+    assert "exception" in data['data'], "Failed to catch exception."
+    assert data['data']['exception']['type'] == 'ValueError', \
+        'Must catch ValueError.'
 
 
-@pytest.mark.skip(reason="no way of currently testing this")
-def test_demo(logger, caplog):
-    # test funciton
-    logger.clog(logging.ERROR, 'netlog')
-    txt = caplog.text
-    assert 'log' == txt
+def test_exception_log_traceback_in_single_line(logger, caplog):
+    """Test traceback by exception function is logged in single line.
+    """
+    caplog.clear()
+    try:
+        raise ValueError('must be logged.')
+    except ValueError:
+        logger.exception('This should be written.', acl=ACL['developer'])
+    data = get_message_body(caplog)
+
+    assert '\n' not in data['data']['exception']['traceback'], \
+        "Tracelog should not contain '\n', it should be in single line."
+
+
+def test_log_title(logger, caplog):
+    """Test logger's title functionality.
+    """
+    # set title using chaining
+    caplog.clear()
+    logger.title('Xoxo').dlog(logging.ERROR, 'message')
+    data = get_message_body(caplog)
+    assert data['title'] == 'Xoxo', 'Title must be same as set in logger'
+
+    # set title using keyword arg in log function
+    caplog.clear()
+    logger.dlog(logging.ERROR, 'message', title='tItLe')
+    data = get_message_body(caplog)
+    assert data['title'] == 'tItLe', 'Title must be same as title keyword.'
+
+
+def test_title_preference(logger, caplog):
+    """Title for a log can be set using two methods.
+    Either using title() method or using 'title' keyword.
+    On using both keyword must be higher precedence.
+    """
+    caplog.clear()
+    logger.title('Xoxo').dlog(logging.ERROR, 'message', title='Yolo')
+    data = get_message_body(caplog)
+    assert data['title'] == 'Yolo', 'title keyword high precedence.'
+    assert data['title'] != 'Xoxo', 'title method low precedence.'

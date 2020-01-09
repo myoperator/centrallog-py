@@ -1,4 +1,5 @@
 """Main module."""
+import sys
 import json
 import logging
 
@@ -34,17 +35,19 @@ class centrallog(logging.getLoggerClass()):
         Write customer logs.
     """
     _SERVICENAME = None
-    _HOSTNAME = ''
-    _UID = ''
+    _HOSTNAME = helpers.get_host_IP()
+    _UID = helpers.get_uuid()
 
     def __init__(self, name):
+        self._title = ''
         logging.Logger.__init__(self, name)
 
     @staticmethod
     def getLogger(name=None):
         if centrallog._SERVICENAME is None:
             # default configuration if not configured yet
-            centrallog.configure(name or 'root')
+            centrallog.configure(name or 'root', centrallog._HOSTNAME,
+                                 centrallog._UID)
         return logging.getLogger(name)
 
     @staticmethod
@@ -55,8 +58,8 @@ class centrallog(logging.getLoggerClass()):
     def configure(servicename: str, hostname='', uid=''):
         if isinstance(servicename, str):
             centrallog._SERVICENAME = servicename
-            centrallog._HOSTNAME = hostname or helpers.get_host_IP()
-            centrallog._UID = uid or helpers.get_uuid()
+            centrallog._HOSTNAME = hostname
+            centrallog._UID = uid
         else:
             raise ValueError("Service name must be a string.")
 
@@ -79,6 +82,10 @@ class centrallog(logging.getLoggerClass()):
             raise ValueError("Invalid acl value. Possible values are %s."
                              % list(acl_values))
 
+        if 'title' in kwargs:
+            # set title if given.
+            self.title(kwargs.pop('title'))
+
         msg_body = {
             "time": "epoch time",
             "mc_time": "epoch ms",
@@ -87,11 +94,27 @@ class centrallog(logging.getLoggerClass()):
             "class": "class name",
             "data": {
                 "uid": centrallog._UID,
-                "msg": msg or '',
+                "msg": msg,
                 "acl": acl
             },
-            "title": "title here...",
+            "title": self._title,
         }
+
+        # check if exc_info if passed
+        exc_info = kwargs.pop('exc_info', None)
+        if exc_info:
+            if isinstance(exc_info, BaseException):
+                exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
+            elif not isinstance(exc_info, tuple):
+                exc_info = sys.exc_info()
+
+            tb_str = helpers.get_exception_traceback(exc_info)
+            msg_body['data']['exception'] = {
+                "type": exc_info[0].__name__ if exc_info[0] else exc_info[0],
+                "message": str(exc_info[1]) if exc_info[1] else exc_info[1],
+                "traceback": tb_str.replace('\n', ' | ')
+            }
+
         return ("\n" + json.dumps(msg_body, indent=4)), kwargs
 
     def dlog(self, level, msg, *args, **kwargs):
@@ -99,27 +122,37 @@ class centrallog(logging.getLoggerClass()):
         Delegate the developer log to the underlying logger.
         """
         kwargs['acl'] = ACL['developer']
-        self._log(level, msg, args, **kwargs)
+        self.log(level, msg, *args, **kwargs)
 
     def slog(self, level, msg, *args, **kwargs):
         """
         Delegate the support log to the underlying logger.
         """
         kwargs['acl'] = ACL['support']
-        self._log(level, msg, args, **kwargs)
+        self.log(level, msg, *args, **kwargs)
 
     def clog(self, level, msg, *args, **kwargs):
         """
         Delegate the customer log to the underlying logger.
         """
         kwargs['acl'] = ACL['customer']
-        self._log(level, msg, args, **kwargs)
+        self.log(level, msg, *args, **kwargs)
 
     def _log(self, level, msg, args, **kwargs):
         """All log dispatcher (overridden method).
         """
         msg, kwargs = self.process(msg, kwargs)
         super()._log(level, msg, args, **kwargs)
+        self.reset_title()
+
+    def title(self, text=''):
+        """Set title for the log message."""
+        self._title = text
+        return self
+
+    def reset_title(self):
+        """Reset title value."""
+        self._title = ''
 
 
 logging.setLoggerClass(centrallog)
