@@ -3,6 +3,7 @@
 """Tests for `centrallog` package."""
 import json
 import logging
+import time
 import pytest
 
 from myoperator.centrallog import centrallog, ACL
@@ -68,6 +69,14 @@ def test_core_logging_functions(logger, caplog):
     logger.log(logging.CRITICAL, "message", acl=ACL['support'])
     record_tuple = caplog.record_tuples[0]
     assert record_tuple[:-1] == (logger.name, logging.CRITICAL)
+
+def test_logging_epoch(logger, caplog, monkeypatch): 
+    monkeypatch.setattr(time, "time", lambda: 1234.567)
+    caplog.clear()
+    logger.log(logging.CRITICAL, "message", acl=ACL['support'])
+    data = get_message_body(caplog)
+    assert 1234 == data['time']
+    assert 1234.567 == data['mc_time']
 
 
 # ---------------------------------------------------------------
@@ -161,6 +170,7 @@ def test_exception_log_traceback(logger, caplog):
     data = get_message_body(caplog)
 
     assert "exception" in data['data'], "Failed to catch exception."
+    assert 'This should be written.' == data['data']['msg']
     assert data['data']['exception']['type'] == 'ValueError', \
         'Must catch ValueError.'
 
@@ -174,7 +184,7 @@ def test_exception_log_traceback_in_single_line(logger, caplog):
     except ValueError:
         logger.exception('This should be written.', acl=ACL['developer'])
     data = get_message_body(caplog)
-
+    assert 'ValueError: must be logged.' in data['data']['exception']['traceback']
     assert '\n' not in data['data']['exception']['traceback'], \
         "Tracelog should not contain '\n', it should be in single line."
 

@@ -1,6 +1,7 @@
 """Main module."""
 import sys
 import json
+import time
 import logging
 
 from . import helpers
@@ -86,9 +87,10 @@ class centrallog(logging.getLoggerClass()):
             # set title if given.
             self.title(kwargs.pop('title'))
 
+        epoch = time.time()
         msg_body = {
-            "time": "epoch time",
-            "mc_time": "epoch ms",
+            "time": int(epoch),
+            "mc_time": epoch,
             "ip": centrallog._HOSTNAME,
             "service": centrallog._SERVICENAME,
             "class": "class name",
