@@ -93,7 +93,7 @@ class centrallog(logging.getLoggerClass()):
             "mc_time": epoch,
             "ip": centrallog._HOSTNAME,
             "service": centrallog._SERVICENAME,
-            "class": "class name",
+            "class": self.name,
             "data": {
                 "uid": centrallog._UID,
                 "msg": msg,
@@ -117,7 +117,7 @@ class centrallog(logging.getLoggerClass()):
                 "traceback": tb_str.replace('\n', ' | ')
             }
 
-        return ("\n" + json.dumps(msg_body, indent=4)), kwargs
+        return ("\n" + json.dumps(msg_body, indent=4, default=str)), kwargs
 
     def dlog(self, level, msg, *args, **kwargs):
         """
